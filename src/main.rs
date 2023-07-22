@@ -3,10 +3,10 @@ mod pid_responses;
 use anyhow::Context;
 use embedded_can::{nb::Can, Frame as EmbeddedFrame, StandardId};
 use nb::block;
-use socketcan::{CanFrame, CanSocket, Frame, Socket};
-use std::env;
 use pid_responses::parse_pid_responses;
+use socketcan::{CanFrame, CanSocket, Frame, Socket};
 use std::collections::HashMap;
+use std::env;
 
 #[macro_use]
 extern crate lazy_static;
@@ -26,8 +26,9 @@ fn response_frame(frame: &CanFrame) -> Option<CanFrame> {
     }
     let pid = frame.data()[2];
     let response = &PID_RESPONSES[&pid];
-    let frame = CanFrame::new(StandardId::new(0x7e8).unwrap(), &response).expect("Creating response can frame");
-    
+    let frame = CanFrame::new(StandardId::new(0x7e8).unwrap(), &response)
+        .expect("Creating response can frame");
+
     Some(frame)
 }
 
@@ -43,7 +44,10 @@ fn main() -> anyhow::Result<()> {
         if let Some(transmit_frame) = response_frame(&received_frame) {
             block!(sock.transmit(&transmit_frame)).context("Transmitting frame")?;
         } else {
-            eprintln!("No response for frame: {}", frame_to_string(&received_frame));
+            eprintln!(
+                "No response for frame: {}",
+                frame_to_string(&received_frame)
+            );
         }
     }
 }
