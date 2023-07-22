@@ -1,0 +1,12 @@
+use std::fs::File;
+use serde_yaml;
+use anyhow;
+use std::collections::HashMap;
+
+static FILE: &str = "pid_responses.yaml";
+
+pub fn parse_pid_responses() -> anyhow::Result<HashMap<u8, Vec<u8>>> {
+    let reader = File::open(FILE)?;
+    let yaml: HashMap<u8, Vec<u8>> = serde_yaml::from_reader(reader)?;
+    Ok(yaml)
+}

@@ -1,0 +1,15 @@
+[package]
+name = "sae-j1979-test-ecu"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+socketcan = "2.0.0"
+embedded-can = "0.4.1"
+anyhow = "1.0.72"
+nb = "1.1.0"
+serde = "1.0.174"
+serde_yaml = "0.9.25"
+lazy_static = "1.4.0"
