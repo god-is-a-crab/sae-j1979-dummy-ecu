@@ -79,3 +79,82 @@ fn main() -> anyhow::Result<()> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn response_frame_invalid_test() {
+        let mut pid_responses_index: HashMap<u8, u32> = HashMap::new();
+
+        let invalid_id = StandardId::new(0x7e0).unwrap();
+        let broadcast_id = StandardId::new(0x7df).unwrap();
+
+        // invalid id
+        assert!(response_frame(
+            &CanFrame::new(invalid_id, &[2, 1, 1, 0, 0, 0, 0, 0]).unwrap(),
+            &mut pid_responses_index
+        )
+        .is_none());
+        // valid id
+        assert!(response_frame(
+            &CanFrame::new(broadcast_id, &[2, 1, 1, 0, 0, 0, 0, 0]).unwrap(),
+            &mut pid_responses_index
+        )
+        .is_some());
+        // invalid service
+        assert!(response_frame(
+            &CanFrame::new(broadcast_id, &[2, 2, 1, 0, 0, 0, 0, 0]).unwrap(),
+            &mut pid_responses_index
+        )
+        .is_none());
+        // valid service (0x01)
+        assert!(response_frame(
+            &CanFrame::new(broadcast_id, &[2, 1, 1, 0, 0, 0, 0, 0]).unwrap(),
+            &mut pid_responses_index
+        )
+        .is_some());
+    }
+
+    #[test]
+    fn response_frame_valid_test() {
+        let mut pid_responses_index: HashMap<u8, u32> = HashMap::new();
+        for pid in PID_RESPONSES.keys() {
+            pid_responses_index.insert(*pid, 0u32);
+        }
+
+        const SERVICE: u8 = 0x41;
+        const RAW_ID: u32 = 0x7e8;
+        const FRAME_SIZE: usize = 8;
+        let broadcast_id = StandardId::new(0x7df).unwrap();
+
+        let pid = 5u8;
+        let frame = response_frame(
+            &CanFrame::new(broadcast_id, &[2, 1, pid, 0, 0, 0, 0, 0]).unwrap(),
+            &mut pid_responses_index,
+        );
+        assert!(frame.is_some());
+        let frame = frame.unwrap();
+        assert_eq!(pid_responses_index[&pid], 1);
+        assert_eq!(frame.raw_id(), RAW_ID);
+        assert_eq!(frame.data()[0], 3);
+        assert_eq!(frame.data()[1], SERVICE);
+        assert_eq!(frame.data()[2], pid);
+        assert_eq!(frame.data().len(), FRAME_SIZE);
+
+        let pid: u8 = 12u8;
+        let frame = response_frame(
+            &CanFrame::new(broadcast_id, &[2, 1, pid, 0, 0, 0, 0, 0]).unwrap(),
+            &mut pid_responses_index,
+        );
+        assert!(frame.is_some());
+        let frame = frame.unwrap();
+        assert_eq!(pid_responses_index[&12], 1);
+        assert_eq!(frame.raw_id(), RAW_ID);
+        assert_eq!(frame.data()[0], 4);
+        assert_eq!(frame.data()[1], SERVICE);
+        assert_eq!(frame.data()[2], pid);
+        assert_eq!(frame.data().len(), FRAME_SIZE);
+    }
+}
