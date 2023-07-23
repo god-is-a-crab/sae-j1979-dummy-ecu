@@ -11,13 +11,15 @@ use std::env;
 #[macro_use]
 extern crate lazy_static;
 
+static NUM_RESPONSES: usize = 245;
+
 lazy_static! {
     static ref PID_RESPONSES: HashMap<u8, PidResponses> = parse_pid_responses().unwrap();
 }
 
 fn response_frame(
     frame: &CanFrame,
-    pid_responses_index: &mut HashMap<u8, u32>,
+    pid_responses_index: &mut HashMap<u8, usize>,
 ) -> Option<CanFrame> {
     // Check broadcast id
     if frame.raw_id() != 0x7df {
@@ -46,11 +48,11 @@ fn response_frame(
             CanFrame::new(id, &data)
         } else {
             let i = pid_responses_index[&pid];
-            data.extend_from_slice(&responses_info.responses[i as usize]);
+            data.extend_from_slice(&responses_info.responses[i]);
             data.push(0); // Last data byte is part of the standard can frame but unused.
             *pid_responses_index
                 .get_mut(&pid)
-                .expect("Couldn't retrieve pid responses index") = i + 1;
+                .expect("Couldn't retrieve pid responses index") = (i + 1) % NUM_RESPONSES;
             CanFrame::new(id, &data)
         }
     } else {
@@ -65,9 +67,9 @@ fn main() -> anyhow::Result<()> {
     sock.set_nonblocking(true)
         .context("Failed to make socket non-blocking")?;
 
-    let mut pid_responses_index: HashMap<u8, u32> = HashMap::new();
+    let mut pid_responses_index: HashMap<u8, usize> = HashMap::new();
     for pid in PID_RESPONSES.keys() {
-        pid_responses_index.insert(*pid, 0u32);
+        pid_responses_index.insert(*pid, 0);
     }
 
     loop {
@@ -86,7 +88,7 @@ mod tests {
 
     #[test]
     fn response_frame_invalid_test() {
-        let mut pid_responses_index: HashMap<u8, u32> = HashMap::new();
+        let mut pid_responses_index: HashMap<u8, usize> = HashMap::new();
 
         let invalid_id = StandardId::new(0x7e0).unwrap();
         let broadcast_id = StandardId::new(0x7df).unwrap();
@@ -119,9 +121,9 @@ mod tests {
 
     #[test]
     fn response_frame_valid_test() {
-        let mut pid_responses_index: HashMap<u8, u32> = HashMap::new();
+        let mut pid_responses_index: HashMap<u8, usize> = HashMap::new();
         for pid in PID_RESPONSES.keys() {
-            pid_responses_index.insert(*pid, 0u32);
+            pid_responses_index.insert(*pid, 0);
         }
 
         const SERVICE: u8 = 0x41;
@@ -144,17 +146,17 @@ mod tests {
         assert_eq!(frame.data().len(), FRAME_SIZE);
 
         let pid: u8 = 12u8;
-        let frame = response_frame(
-            &CanFrame::new(broadcast_id, &[2, 1, pid, 0, 0, 0, 0, 0]).unwrap(),
-            &mut pid_responses_index,
-        );
-        assert!(frame.is_some());
-        let frame = frame.unwrap();
-        assert_eq!(pid_responses_index[&12], 1);
-        assert_eq!(frame.raw_id(), RAW_ID);
-        assert_eq!(frame.data()[0], 4);
-        assert_eq!(frame.data()[1], SERVICE);
-        assert_eq!(frame.data()[2], pid);
-        assert_eq!(frame.data().len(), FRAME_SIZE);
+        let received_frame = CanFrame::new(broadcast_id, &[2, 1, pid, 0, 0, 0, 0, 0]).unwrap();
+        for i in 0..246 {
+            let frame = response_frame(&received_frame, &mut pid_responses_index);
+            assert!(frame.is_some());
+            let frame = frame.unwrap();
+            assert_eq!(pid_responses_index[&12], (i + 1) % NUM_RESPONSES);
+            assert_eq!(frame.raw_id(), RAW_ID);
+            assert_eq!(frame.data()[0], 4);
+            assert_eq!(frame.data()[1], SERVICE);
+            assert_eq!(frame.data()[2], pid);
+            assert_eq!(frame.data().len(), FRAME_SIZE);
+        }
     }
 }
