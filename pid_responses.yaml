@@ -4,7 +4,7 @@
 0:
   num_data_bytes: 4
   responses:
-  - [254, 56, 0, 0]
+  - [254, 56, 0, 16]
 
 # monitor status
 1:
@@ -2011,3 +2011,8 @@
   - [0, 0, 0, 0]
   - [0, 0, 0, 0]
   - [0, 0, 0, 0]
+
+28:
+  num_data_bytes: 1
+  responses:
+  - [72, 0, 0, 0]
